@@ -11,7 +11,7 @@ spec:
 
   containers:
     - name: benchmark-runner
-      image: quay.io/tms/poker:0.0.0
+      image: quay.io/tms/poker:0.0.3
       imagePullPolicy: Always
       stdin: true
       tty: true

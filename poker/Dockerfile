@@ -10,7 +10,7 @@ RUN apt-get update && \
         htop iotop strace lsof \
         iproute2 iputils-ping dnsutils curl iperf3 \
         hey wrk apache2-utils \
-        jq ripgrep fd-find less \
+        jq ripgrep fzf bat fd-find less \
         git \
         tmux zsh \
         nodejs npm \
@@ -33,13 +33,10 @@ RUN uv pip install --python "${VIRTUAL_ENV}/bin/python"\
       guidellm
 
 # Install dotfiles
-RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfiles \
-    && cd dotfiles \
+RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfiles .dotfiles\
+    && cd .dotfiles \
     && bash install.sh \
     && rm -rf .git
-ENV APPIMAGE_EXTRACT_AND_RUN=1
-RUN echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $HOME/.zshrc.local
-RUN echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $HOME/.bashrc
 
 # Make first time startup seamless
 RUN nvim --headless "+Lazy! restore" +qa || nvim --headless "+Lazy! sync" +qa
@@ -58,7 +55,7 @@ RUN git clone --filter=blob:none https://github.com/vllm-project/vllm.git \
     rm -rf .git
 
 RUN cd /app \
-    && apt-get purge -y git && apt-get autoremove -y \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 CMD ["sleep", "infinity"]

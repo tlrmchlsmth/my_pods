@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bender
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bender
+          image: quay.io/buildah/stable:latest
+          securityContext:
+            privileged: true
+          env:
+            - name: CONTEXT
+              value: "https://github.com/tlrmchlsmth/my_pods.git#refs/heads/main"
+            - name: DOCKERFILE
+              value: "./Dockerfile"
+            - name: IMAGE
+              value: "poker"
+            - name: IMAGE_TAG
+              value: "test"
+            - name: BUILDAH_LAYERS
+              value: "true"
+            - name: REGISTRY_AUTH_FILE
+              value: "/auth/config.json"
+            - name: BUILDAH_ISOLATION
+              value: "chroot"
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -euo pipefail
+              buildah version
+
+              # Use the modern 'buildah build' command instead of 'bud'
+              # and tag with the full destination name from the start.
+              buildah build \
+                --isolation="${BUILDAH_ISOLATION}" \
+                --storage-driver vfs \
+                --root /buildah \
+                -f "${DOCKERFILE}" \
+                -t "quay.io/tms/${IMAGE}:${IMAGE_TAG}" \
+                "${CONTEXT}"
+
+              # Push the fully-qualified image
+              buildah push "quay.io/tms/${IMAGE}:${IMAGE_TAG}"
+          resources:
+            requests:
+              cpu: "16"
+              memory: "32Gi"
+              ephemeral-storage: "20Gi"
+            limits:
+              cpu: "16"
+              memory: "32Gi"
+              ephemeral-storage: "40Gi"
+          volumeMounts:
+            - name: auth
+              mountPath: /auth
+              readOnly: true
+            - name: buildah-root
+              mountPath: /buildah
+      volumes:
+        - name: auth
+          secret:
+            secretName: tms-bender-creds
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: buildah-root
+          emptyDir: {}

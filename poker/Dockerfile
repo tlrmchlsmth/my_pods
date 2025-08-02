@@ -1,5 +1,7 @@
 FROM ubuntu:24.04
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 WORKDIR /app
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -39,18 +41,18 @@ RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfil
     && rm -rf .git
 
 # Make first time neovim startup seamless
-RUN nvim --headless "+autocmd User LazyDone quitall" "+Lazy! sync" "+TSUpdateSync" "+MasonUpdate"
+RUN nvim --headless "+autocmd User LazyDone quitall" "+Lazy! sync" "+MasonUpdate" +qa
 
 
-ENV VLLM_USE_PRECOMPILED=1
 ARG VLLM_COMMIT=427a5a3d65701217b6cc160073d41a0de4b82368
-
 RUN source ${VIRTUAL_ENV}/bin/activate \
     && git clone --filter=blob:none https://github.com/vllm-project/vllm.git \
     && cd vllm \
     && git remote add eicherseiji https://github.com/eicherseiji/vllm \
     && git fetch eicherseiji ${VLLM_COMMIT} --depth=1 \
     && git checkout --detach ${VLLM_COMMIT} \
+    && apt-get install -y --no-install-recommends gcc-12 g++-12 libtcmalloc-minimal4 libnuma-dev ffmpeg libsm6 libxext6 libgl1 \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12 \
     && uv pip install --torch-backend auto --index-strategy unsafe-best-match \
       -r requirements/cpu-build.txt -r requirements/cpu.txt \
     && VLLM_TARGET_DEVICE=cpu python setup.py install

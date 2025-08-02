@@ -41,8 +41,6 @@ RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfil
 # Make first time neovim startup seamless
 # Install plugins according to lazy-lock (or install if first time)
 RUN nvim --headless "+Lazy! sync" +qa
-# Treesitter parsers (no :TS* commands needed)
-RUN nvim --headless "+lua require('nvim-treesitter.install').update({with_sync=true})()" +qa || true
 # Mason: refresh registry & install tools (use *Sync for headless)
 RUN nvim --headless "+Lazy! load mason.nvim mason-tool-installer.nvim" \
           "+MasonUpdate" "+MasonToolsInstallSync" +qa || true

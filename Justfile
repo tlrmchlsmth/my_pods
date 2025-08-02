@@ -7,7 +7,7 @@ build-and-publish VERSION:
 
 create-bender-creds:
   kubectl create secret generic tms-bender-creds \
-    --from-file=.dockerconfigjson=$HOME/.k8s/tms-bender-auth.json \
+    --from-file=.dockerconfigjson=$HOME/.quay/tms-bender-auth.json \
     --type=kubernetes.io/dockerconfigjson
 
 ##################################################################

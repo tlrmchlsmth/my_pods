@@ -17,7 +17,7 @@ spec:
             - name: CONTEXT
               value: "https://github.com/tlrmchlsmth/my_pods.git#refs/heads/main"
             - name: DOCKERFILE
-              value: "bender/Dockerfile"
+              value: "poker/Dockerfile"
             - name: IMAGE
               value: "poker"
             - name: IMAGE_TAG

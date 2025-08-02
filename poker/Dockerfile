@@ -29,7 +29,7 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Install python dependencies
 RUN uv pip install --python "${VIRTUAL_ENV}/bin/python"\
-      just \
+      rust-just \
       guidellm
 
 # Install dotfiles

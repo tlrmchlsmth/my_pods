@@ -38,11 +38,16 @@ RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfil
     && bash install.sh \
     && rm -rf .git
 
-# Make first time startup seamless
-RUN nvim --headless "+Lazy! restore" +qa || nvim --headless "+Lazy! sync" +qa
-RUN nvim --headless "+TSUpdateSync" +qa || true
-RUN nvim --headless -c "MasonUpdate" -c "MasonToolsInstall" -c "qall" || true
-RUN nvim --headless "+qall"
+# Make first time neovim startup seamless
+# Install plugins according to lazy-lock (or install if first time)
+RUN nvim --headless "+Lazy! sync" +qa
+# Treesitter parsers (no :TS* commands needed)
+RUN nvim --headless "+lua require('nvim-treesitter.install').update({with_sync=true})()" +qa || true
+# Mason: refresh registry & install tools (use *Sync for headless)
+RUN nvim --headless "+Lazy! load mason.nvim mason-tool-installer.nvim" \
+          "+MasonUpdate" "+MasonToolsInstallSync" +qa || true
+RUN nvim --headless "+qall" || true
+
 
 ENV VLLM_USE_PRECOMPILED=1
 ARG VLLM_COMMIT=427a5a3d65701217b6cc160073d41a0de4b82368
@@ -52,7 +57,7 @@ RUN source ${VIRTUAL_ENV}/bin/activate \
     && cd vllm \
     && git remote add eicherseiji https://github.com/eicherseiji/vllm \
     && git fetch eicherseiji ${VLLM_COMMIT} --depth=1 \
-    && git checkout --detach ${VLLM_COMMIT} &&
+    && git checkout --detach ${VLLM_COMMIT} \
     && uv pip install --torch-backend auto --index-strategy unsafe-best-match \
       -r requirements/cpu-build.txt -r requirements/cpu.txt \
     && VLLM_TARGET_DEVICE=cpu python setup.py install

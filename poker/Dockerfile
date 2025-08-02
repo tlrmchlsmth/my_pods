@@ -47,12 +47,15 @@ RUN nvim --headless "+qall"
 ENV VLLM_USE_PRECOMPILED=1
 ARG VLLM_COMMIT=427a5a3d65701217b6cc160073d41a0de4b82368
 
-RUN git clone --filter=blob:none https://github.com/vllm-project/vllm.git \
+RUN source ${VIRTUAL_ENV}/bin/activate \
+    && git clone --filter=blob:none https://github.com/vllm-project/vllm.git \
     && cd vllm \
     && git remote add eicherseiji https://github.com/eicherseiji/vllm \
     && git fetch eicherseiji ${VLLM_COMMIT} --depth=1 \
-    && git checkout --detach ${VLLM_COMMIT} && \
-    rm -rf .git
+    && git checkout --detach ${VLLM_COMMIT} &&
+    && uv pip install --torch-backend auto --index-strategy unsafe-best-match \
+      -r requirements/cpu-build.txt -r requirements/cpu.txt \
+    && VLLM_TARGET_DEVICE=cpu python setup.py install
 
 RUN cd /app \
     && apt-get autoremove -y \

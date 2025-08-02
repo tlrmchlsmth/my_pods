@@ -39,12 +39,7 @@ RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfil
     && rm -rf .git
 
 # Make first time neovim startup seamless
-# Install plugins according to lazy-lock (or install if first time)
-RUN nvim --headless "+Lazy! sync" +qa
-# Mason: refresh registry & install tools (use *Sync for headless)
-RUN nvim --headless "+Lazy! load mason.nvim mason-tool-installer.nvim" \
-          "+MasonUpdate" "+MasonToolsInstallSync" +qa || true
-RUN nvim --headless "+qall" || true
+RUN nvim --headless "+autocmd User LazyDone quitall" "+Lazy! sync" "+TSUpdateSync" "+MasonUpdate"
 
 
 ENV VLLM_USE_PRECOMPILED=1

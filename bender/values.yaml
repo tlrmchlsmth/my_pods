@@ -21,7 +21,7 @@ spec:
             - name: IMAGE
               value: "poker"
             - name: IMAGE_TAG
-              value: "0.0.7"
+              value: "0.0.8"
             - name: BUILDAH_LAYERS
               value: "true"
             - name: REGISTRY_AUTH_FILE

@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.12 python3.12-dev python3-pip python3-venv \
     git curl ca-certificates \
     gcc-12 g++-12 libtcmalloc-minimal4 libnuma-dev ffmpeg libsm6 libxext6 libgl1 \
+    cmake ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv and create venv
@@ -22,21 +23,28 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 ARG VLLM_COMMIT=309c1bb822c94436e8beff60d68404b4cecd62b8
 RUN git clone --filter=blob:none https://github.com/vllm-project/vllm.git && \
     cd vllm && \
-    git checkout --detach ${VLLM_COMMIT}
+    git fetch --no-tags origin "${VLLM_COMMIT}" && \
+    git checkout --detach "${VLLM_COMMIT}"
 
 # Use gcc-12
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 \
     --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
-# Install build deps (Torch CPU etc.)
+# Install vLLM deps into with CPU torch
 RUN cd vllm && \
     uv pip install --python "${VIRTUAL_ENV}/bin/python" \
-        --torch-backend auto --index-strategy unsafe-best-match \
-        -r requirements/cpu-build.txt -r requirements/cpu.txt
+      --torch-backend cpu --index-strategy unsafe-best-match \
+      -r requirements/cpu-build.txt -r requirements/cpu.txt
 
-# Build wheel for CPU target
+# Ensure pip/wheel available in the venv (uv doesn't guarantee pip)
+RUN python -m ensurepip --upgrade && \
+    python -m pip install --upgrade pip setuptools wheel
+
+# Build wheel without isolation so it reuses CPU torch from the venv
 RUN cd vllm && \
-    VLLM_TARGET_DEVICE=cpu python -m pip wheel --no-deps -w /dist .
+    VLLM_TARGET_DEVICE=cpu python -m pip wheel \
+      --no-deps --no-build-isolation -w /dist .
+
 
 # ---------- Stage 2: runtime ----------
 FROM ubuntu:24.04
@@ -84,7 +92,7 @@ RUN uv pip install --python "${VIRTUAL_ENV}/bin/python" \
 # Install dotfiles
 RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfiles .dotfiles \
     && cd .dotfiles \
-    && bash install.sh \
+    && PIP_BREAK_SYSTEM_PACKAGES=1 bash install.sh \
     && rm -rf .git
 
 # Make first time neovim startup seamless (ignore failure if nvim not present yet)

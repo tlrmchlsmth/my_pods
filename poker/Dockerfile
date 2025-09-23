@@ -1,52 +1,3 @@
-# ---------- Stage 1: build vLLM wheel ----------
-FROM ubuntu:24.04 AS vllm-builder
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-WORKDIR /build
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 python3.12-dev python3-pip python3-venv \
-    git curl ca-certificates \
-    gcc-12 g++-12 libtcmalloc-minimal4 libnuma-dev ffmpeg libsm6 libxext6 libgl1 \
-    cmake ninja-build \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv and create venv
-ADD https://astral.sh/uv/install.sh /uv-installer.sh
-RUN sh /uv-installer.sh && rm /uv-installer.sh
-ENV PATH="/root/.local/bin/:$PATH"
-RUN uv venv -p 3.12
-ENV VIRTUAL_ENV=/build/.venv
-ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
-
-# Fetch vLLM source
-ARG VLLM_COMMIT=309c1bb822c94436e8beff60d68404b4cecd62b8
-RUN git clone --filter=blob:none https://github.com/vllm-project/vllm.git && \
-    cd vllm && \
-    git fetch --no-tags origin "${VLLM_COMMIT}" && \
-    git checkout --detach "${VLLM_COMMIT}"
-
-# Use gcc-12
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 \
-    --slave /usr/bin/g++ g++ /usr/bin/g++-12
-
-# Install vLLM deps into with CPU torch
-RUN cd vllm && \
-    uv pip install --python "${VIRTUAL_ENV}/bin/python" \
-      --torch-backend cpu --index-strategy unsafe-best-match \
-      -r requirements/cpu-build.txt -r requirements/cpu.txt
-
-# Ensure pip/wheel available in the venv (uv doesn't guarantee pip)
-RUN python -m ensurepip --upgrade && \
-    python -m pip install --upgrade pip setuptools wheel
-
-# Build wheel without isolation so it reuses CPU torch from the venv
-RUN cd vllm && \
-    VLLM_TARGET_DEVICE=cpu python -m pip wheel \
-      --no-deps --no-build-isolation -w /dist .
-
-
-# ---------- Stage 2: runtime ----------
 FROM ubuntu:24.04
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /app
@@ -63,8 +14,6 @@ RUN apt-get update && \
         tmux zsh \
         nodejs npm \
         ca-certificates \
-        # runtime libs for vLLM wheel built above
-        libtcmalloc-minimal4 libnuma1 libsm6 libxext6 libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -80,7 +29,8 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Base Python deps you had
 RUN uv pip install --python "${VIRTUAL_ENV}/bin/python" \
       rust-just \
-      guidellm
+      guidellm \
+      "lm_eval[api]" \
 
 # Copy vLLM wheel from builder and install (force CPU Torch)
 COPY --from=vllm-builder /dist/*.whl /tmp/wheels/

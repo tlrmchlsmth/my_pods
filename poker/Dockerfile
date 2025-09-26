@@ -20,7 +20,7 @@ ENV VIRTUAL_ENV=/build/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Fetch vLLM source
-ARG VLLM_COMMIT=309c1bb822c94436e8beff60d68404b4cecd62b8
+ARG VLLM_COMMIT=v0.10.2
 RUN git clone --filter=blob:none https://github.com/vllm-project/vllm.git && \
     cd vllm && \
     git fetch --no-tags origin "${VLLM_COMMIT}" && \
@@ -79,8 +79,7 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Base Python deps you had
 RUN uv pip install --python "${VIRTUAL_ENV}/bin/python" \
-      rust-just \
-      guidellm
+      rust-just
 
 # Copy vLLM wheel from builder and install (force CPU Torch)
 COPY --from=vllm-builder /dist/*.whl /tmp/wheels/
@@ -95,6 +94,18 @@ RUN git clone --depth=1 --filter=blob:none https://github.com/tlrmchlsmth/dotfil
     && PIP_BREAK_SYSTEM_PACKAGES=1 bash install.sh \
     && rm -rf .git
 
+# Grab the branch of guidellm that doesn't pass in max_completion_tokens
+RUN git clone --depth=1 --filter=blob:none \
+      -b max_completion_tokens \
+      https://github.com/tlrmchlsmth/guidellm guidellm \
+    && cd guidellm \
+    && PIP_BREAK_SYSTEM_PACKAGES=1 uv pip install .
+
+# lm_eval
+RUN uv venv .lm_eval -p 3.12
+RUN uv pip install --python "/app/.lm_eval/bin/python" "lm_eval[api]"
+RUN echo "alias lm_eval=/app/.lm_eval/bin/lm_eval" >> .dotfiles/zshrc
+
 # Make first time neovim startup seamless (ignore failure if nvim not present yet)
 RUN nvim --headless "+autocmd User LazyDone quitall" "+Lazy! sync" "+MasonUpdate" +qa || true
 
@@ -106,4 +117,3 @@ RUN echo "DISABLE_AUTO_UPDATE=true" >> $HOME/.zshrc.local && \
     echo "DISABLE_UPDATE_PROMPT=true" >> $HOME/.zshrc.local
 
 CMD ["sleep", "infinity"]
-
